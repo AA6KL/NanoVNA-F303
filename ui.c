@@ -32,9 +32,10 @@
 uistat_t uistat = {
  digit: 6,
  current_trace: 0,
- lever_mode: LM_MARKER
+ lever_mode: LM_MARKER,
+ marker_delta: FALSE,
+ marker_smith_format: MS_RLC
 };
-
 
 
 #define NO_EVENT					0
@@ -840,11 +841,13 @@ menu_marker_op_cb(int item)
   case 3: /* MARKERS->SPAN */
     {
       if (previous_marker == -1 || active_marker == previous_marker) {
+        // if only 1 marker is active, keep center freq and make span the marker comes to the edge  
         int32_t center = get_sweep_frequency(ST_CENTER);
         int32_t span = center - freq;
         if (span < 0) span = -span;
         set_sweep_frequency(ST_SPAN, span * 2);
       } else {
+        // if 2 or more marker active, set start and stop freq to each marker
         int32_t freq2 = get_marker_frequency(previous_marker);
         if (freq2 < 0)
           return;
@@ -855,6 +858,15 @@ menu_marker_op_cb(int item)
         set_sweep_frequency(ST_START, freq);
         set_sweep_frequency(ST_STOP, freq2);
       }
+    }
+    break;
+  case 4: /* MARKERS->EDELAY */
+    { 
+      if (uistat.current_trace == -1)
+        break;
+      float (*array)[2] = measured[trace[uistat.current_trace].channel];
+      float v = groupdelay_from_array(markers[active_marker].index, array);
+      set_electrical_delay(electrical_delay + (v / 1e-12));
     }
     break;
   }
@@ -893,6 +905,14 @@ menu_marker_search_cb(int item)
   }
   redraw_marker(active_marker, TRUE);
   uistat.lever_mode = LM_SEARCH;
+}
+
+static void
+menu_marker_smith_cb(int item)
+{
+  uistat.marker_smith_format = item;
+  redraw_marker(active_marker, TRUE);
+  draw_menu();
 }
 
 void 
@@ -934,6 +954,8 @@ menu_marker_sel_cb(int item)
       markers[3].enabled = FALSE;
       previous_marker = -1;
       active_marker = -1;      
+  } else if (item == 5) { /* marker delta */
+    uistat.marker_delta = !uistat.marker_delta;
   }
   redraw_marker(active_marker, TRUE);
   draw_menu();
@@ -1065,6 +1087,7 @@ const menuitem_t menu_marker_sel[] = {
   { MT_CALLBACK, "MARKER 3", menu_marker_sel_cb },
   { MT_CALLBACK, "MARKER 4", menu_marker_sel_cb },
   { MT_CALLBACK, "ALL OFF", menu_marker_sel_cb },
+  { MT_CALLBACK, "DELTA", menu_marker_sel_cb },
   { MT_CANCEL, S_LARROW" BACK", NULL },
   { MT_NONE, NULL, NULL } // sentinel
 };
@@ -1074,6 +1097,7 @@ const menuitem_t menu_marker_ops[] = {
   { MT_CALLBACK, S_RARROW"STOP", menu_marker_op_cb },
   { MT_CALLBACK, S_RARROW"CENTER", menu_marker_op_cb },
   { MT_CALLBACK, S_RARROW"SPAN", menu_marker_op_cb },
+  { MT_CALLBACK, S_RARROW"EDELAY", menu_marker_op_cb },
   { MT_CANCEL, S_LARROW" BACK", NULL },
   { MT_NONE, NULL, NULL } // sentinel
 };
@@ -1089,10 +1113,21 @@ const menuitem_t menu_marker_search[] = {
   { MT_NONE, NULL, NULL } // sentinel
 };
 
+const menuitem_t menu_marker_smith[] = {
+  { MT_CALLBACK, "LIN", menu_marker_smith_cb },
+  { MT_CALLBACK, "LOG", menu_marker_smith_cb },
+  { MT_CALLBACK, "Re+Im", menu_marker_smith_cb },
+  { MT_CALLBACK, "R+Xj", menu_marker_smith_cb },
+  { MT_CALLBACK, "R+L/C", menu_marker_smith_cb },
+  { MT_CANCEL, S_LARROW" BACK", NULL },
+  { MT_NONE, NULL, NULL } // sentinel
+};
+
 const menuitem_t menu_marker[] = {
   { MT_SUBMENU, "\2SELECT\0MARKER", menu_marker_sel },
   { MT_SUBMENU, "SEARCH", menu_marker_search },
   { MT_SUBMENU, "OPERATIONS", menu_marker_ops },
+  { MT_SUBMENU, "\2SMITH\0VALUE", menu_marker_smith },
   { MT_CANCEL, S_LARROW" BACK", NULL },
   { MT_NONE, NULL, NULL } // sentinel
 };
@@ -1403,11 +1438,23 @@ menu_item_modify_attribute(const menuitem_t *menu, int item,
   if (menu == menu_trace && item < 4) {
     if (trace[item].enabled)
       *bg = config.trace_color[item];
-  } else if (menu == menu_marker_sel && item < 4) {
-    if (markers[item].enabled) {
+  } else if (menu == menu_marker_sel) {
+    if (item < 4) {
+      if (markers[item].enabled) {
+        *bg = 0x0000;
+        *fg = 0xffff;
+      }
+    } else if (item == 5) {
+      if (uistat.marker_delta) {
+        *bg = 0x0000;
+        *fg = 0xffff;
+      }
+    }
+  } else if (menu == menu_marker_smith) {
+    if (uistat.marker_smith_format == item) {
       *bg = 0x0000;
       *fg = 0xffff;
-    }   
+    }
   } else if (menu == menu_calop) {
     if ((item == 0 && (cal_status & CALSTAT_OPEN))
         || (item == 1 && (cal_status & CALSTAT_SHORT))

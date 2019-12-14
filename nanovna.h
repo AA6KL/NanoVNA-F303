@@ -183,8 +183,10 @@ extern void tlv320aic3204_select(int channel);
 #define OFFSETY 0
 #define WIDTH (LCD_WIDTH-GRIDY)
 #if defined(ILI9488) || defined(ILI9486) || defined(ST7796S)
+#define FONT_WIDTH 10
 #define FONT_HEIGHT 13
 #else
+#define FONT_WIDTH 5
 #define FONT_HEIGHT 7
 #endif
 #define HEIGHT (LCD_HEIGHT-FONT_HEIGHT)
@@ -203,6 +205,7 @@ extern const uint16_t x7x13b_bits [];
 #endif
 extern const uint8_t numfont20x22[][22 * 3];
 
+#define S_DELTA "\004"
 #define S_PI    "\034"
 #define S_MICRO "\035"
 #define S_OHM   "\036"
@@ -266,8 +269,11 @@ void draw_pll_lock_error(void);
 
 void set_electrical_delay(float picoseconds);
 float get_electrical_delay(void);
+float groupdelay_from_array(int i, float array[101][2]);
 
 // marker
+
+#define MARKERS_MAX 4
 
 typedef struct {
   int8_t enabled;
@@ -369,7 +375,7 @@ typedef struct {
   float _electrical_delay; // picoseconds
   
   trace_t _trace[TRACES_MAX];
-  marker_t _markers[4];
+  marker_t _markers[MARKERS_MAX];
   int _active_marker;
   uint8_t _domain_mode; /* 0bxxxxxffm : where ff: TD_FUNC m: DOMAIN_MODE */
   uint8_t _velocity_factor; // %
@@ -417,6 +423,11 @@ enum {
   LM_MARKER, LM_SEARCH, LM_CENTER, LM_SPAN
 };
 
+// marker smith value format
+enum {
+  MS_LIN, MS_LOG, MS_REIM, MS_RX, MS_RLC
+};
+
 typedef struct {
   int8_t digit; /* 0~5 */
   int8_t digit_mode;
@@ -424,6 +435,8 @@ typedef struct {
   uint32_t value; // for editing at numeric input area
   uint32_t previous_value;
   uint8_t lever_mode;
+  bool marker_delta;
+  uint8_t marker_smith_format;
 } uistat_t;
 
 extern uistat_t uistat;
