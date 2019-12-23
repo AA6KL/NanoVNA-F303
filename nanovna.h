@@ -469,6 +469,7 @@ void adc_interrupt(ADC_TypeDef *adc);
 int16_t adc_vbat_read(ADC_TypeDef *adc);
 
 #ifdef NANOVNA_F303
+#define F303_ADC_VREF_ALWAYS_ON
 #define ADC_CHSELR_VREFINT      ADC_CHANNEL_IN18
 #define ADC_CHSELR_VBAT         ADC_CHANNEL_IN17
 #else
