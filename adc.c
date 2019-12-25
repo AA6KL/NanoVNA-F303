@@ -26,10 +26,10 @@
 #ifdef NANOVNA_F303
 #include "adc_F303.h"
 
+#define ADC_SMPR_SMP_TIME           ADC_SMPR_SMP_61P5
 #define ADC_GRP_NUM_CHANNELS_VBAT   3
-#define ADC_GRP_BUF_DEPTH_VBAT      4
+#define ADC_GRP_BUF_DEPTH_VBAT      2
 static adcsample_t samplesVBAT[ADC_GRP_NUM_CHANNELS_VBAT*ADC_GRP_BUF_DEPTH_VBAT];
-static adcsample_t samplesVBAT2[ADC_GRP_NUM_CHANNELS_VBAT*ADC_GRP_BUF_DEPTH_VBAT];
 static adcsample_t samples[2];
 
 static const ADCConversionGroup adcgrpcfgVBAT = {
@@ -38,10 +38,10 @@ static const ADCConversionGroup adcgrpcfgVBAT = {
   NULL,
   NULL,
   //  ADC_CFGR_CONT | ADC_CFGR1_RES_12BIT,  /* CFGR1 */
-  ADC_CFGR_CONT,                            /* CFGR1 */
+  ADC_CFGR_CONT | ADC_CFGR1_RES_12BIT,       /* CFGR1 */
   ADC_TR(0, 4095),              /* TR */
-  {ADC_SMPR2_SMP_AN16(ADC_SMPR_SMP_2P5) | ADC_SMPR2_SMP_AN17(ADC_SMPR_SMP_2P5) | ADC_SMPR2_SMP_AN18(ADC_SMPR_SMP_2P5), 
-   0},                        /* SMPR */
+  {0,
+   ADC_SMPR2_SMP_AN16(ADC_SMPR_SMP_TIME) | ADC_SMPR2_SMP_AN17(ADC_SMPR_SMP_TIME) | ADC_SMPR2_SMP_AN18(ADC_SMPR_SMP_TIME)},                        /* SMPR */
   {ADC_SQR1_SQ1_N(ADC_CHANNEL_IN17) | ADC_SQR1_SQ2_N(ADC_CHANNEL_IN18)
    | ADC_SQR1_SQ3_N(ADC_CHANNEL_IN16) ,
    0,0,0}                       /* CHSELR */
@@ -58,7 +58,8 @@ static ADCConversionGroup adcgrpcfgTouch = {
   | ADC_CFGR_AWD1EN
   ,
   ADC_TR(0, TOUCH_THRESHOLD),   /* TR1     */
-  {5,0},                        /* SMPR[2] */
+  {ADC_SMPR1_SMP_AN3(ADC_SMPR_SMP_TIME) | ADC_SMPR1_SMP_AN4(ADC_SMPR_SMP_TIME),
+   0},                        /* SMPR[2] */
   {                             /* SQR[4]  */
     ADC_SQR1_SQ1_N(ADC_CHANNEL_IN3) ,
     0,
@@ -74,7 +75,8 @@ static ADCConversionGroup adcgrpcfgXY = {
   NULL,                         /* adcerrorcallback_touch */
   ADC_CFGR1_RES_12BIT,          /* CFGR */
   ADC_TR(0, 0),                 /* TR1     */
-  {5,0},                        /* SMPR[2] */
+  {ADC_SMPR1_SMP_AN3(ADC_SMPR_SMP_TIME) | ADC_SMPR1_SMP_AN4(ADC_SMPR_SMP_TIME),
+   0},                        /* SMPR[2] */
   {                             /* SQR[4]  */
     ADC_SQR1_SQ1_N(ADC_CHANNEL_IN3) ,
     0,
@@ -180,23 +182,16 @@ int16_t adc_vbat_read(ADC_TypeDef *adc)
   adcSTM32EnableVBAT(&ADCD1);
   adcSTM32EnableVREF(&ADCD1);
   adcSTM32EnableTS(&ADCD1);
-  adcConvert(&ADCD1, &adcgrpcfgVBAT, samplesVBAT2, ADC_GRP_BUF_DEPTH_VBAT);
-  //chThdSleepMilliseconds(1000);
   adcConvert(&ADCD1, &adcgrpcfgVBAT, samplesVBAT,  ADC_GRP_BUF_DEPTH_VBAT);
-  //chThdSleepMilliseconds(1000);
   adcSTM32DisableVBAT(&ADCD1);
   adcSTM32DisableVREF(&ADCD1);
   adcSTM32DisableTS(&ADCD1);
  #else
-  // Not to turn on/off ADC to avoid ADC on/off noise.
-  //adcConvert(&ADCD1, &adcgrpcfgVBAT, samplesVBAT2, ADC_GRP_BUF_DEPTH_VBAT);
-  //chThdSleepMilliseconds(1000);
   adcConvert(&ADCD1, &adcgrpcfgVBAT, samplesVBAT,  ADC_GRP_BUF_DEPTH_VBAT);
-  //chThdSleepMilliseconds(1000);
  #endif
-  vbat = samplesVBAT[ADC_GRP_NUM_CHANNELS_VBAT*ADC_GRP_BUF_DEPTH_VBAT-3];
-  vrefint = samplesVBAT[ADC_GRP_NUM_CHANNELS_VBAT*ADC_GRP_BUF_DEPTH_VBAT-2];
-  ts = samplesVBAT[ADC_GRP_NUM_CHANNELS_VBAT*ADC_GRP_BUF_DEPTH_VBAT-1];
+  vbat = samplesVBAT[0];
+  vrefint = samplesVBAT[1];
+  ts = samplesVBAT[2]; 
   uint16_t vts = (ADC_FULL_SCALE * VREFINT_CAL * ts / (vrefint * ((1<<12)-1)));
   uint16_t TemperatureC2 = (uint16_t)((V25-ts)/Avg_Slope+25);
   uint16_t TemperatureC = (uint16_t)((V25-ts)/avg_slope+25);
@@ -205,7 +200,7 @@ int16_t adc_vbat_read(ADC_TypeDef *adc)
   // VREFINT == ADC_IN17
   vrefint = adc_single_read(adc, ADC_CHSELR_VREFINT);
   // VBAT == ADC_IN18
-  // VBATEN enables resiter devider circuit. It consume vbat power.
+  // VBATEN enables resister divider circuit. It consumes vbat power.
   vbat = adc_single_read(adc, ADC_CHSELR_VBAT);
   ADC->CCR &= ~(ADC_CCR_VREFEN | ADC_CCR_VBATEN);
 #endif
