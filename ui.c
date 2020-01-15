@@ -1372,7 +1372,7 @@ draw_numeric_area_frame(void)
 #else
   ili9341_drawstring_7x13(keypad_mode_label[keypad_mode], 10, 220, 0x0000, 0xffff);
 #endif
-  ili9341_drawfont(KP_KEYPAD, &NF20x22, LCD_WIDTH-20, LCD_HEIGHT*0.9, 0x0000, 0xffff);
+  //ili9341_drawfont(KP_KEYPAD, &NF20x22, LCD_WIDTH-20, LCD_HEIGHT*0.9, 0x0000, 0xffff);
 }
 
 void
@@ -1560,13 +1560,13 @@ menu_apply_touch(void)
     if (menu[i].type == MT_BLANK) 
       continue;
     int y = 32*i;
-		#if !defined(ST7796S)
+    #if !defined(ST7796S)
     if (y-2 < touch_y && touch_y < y+30+2
         && LCD_WIDTH-60 < touch_x) {
 		#else
 	if (y-2 < touch_y && touch_y < y+30+2
 		&& LCD_WIDTH-72 < touch_x) {
-#endif
+    #endif
       menu_select_touch(i);
       return;
     }
@@ -2005,10 +2005,6 @@ keypad_apply_touch(void)
     }
     i++;
   }
-  if (touch_y > 48 * 4) {
-    // exit keypad mode
-    return -2;
-  }
   return -1;
 }
 
@@ -2162,10 +2158,6 @@ ui_process_keypad(void)
       if (key >= 0 && keypad_click(key))
         /* exit loop on done or cancel */
         break;
-      else if (key == -2) {
-        //xxx;
-        return;
-      }
     }
   }
 

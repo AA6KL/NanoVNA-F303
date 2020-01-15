@@ -1499,6 +1499,8 @@ draw_all(bool flush)
 void
 redraw_marker(int marker, int update_info)
 {
+  if (marker < 0)
+    return;
   // mark map on new position of marker
   markmap_marker(marker);
 
