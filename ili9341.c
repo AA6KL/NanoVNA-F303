@@ -434,10 +434,13 @@ ili9341_read_memory_raw(uint8_t cmd, int len, uint16_t* out)
         // read data is always 18bit
         r = ssp_sendrecvdata(0);
         g = ssp_sendrecvdata(0);
-        b = ssp_sendrecvdata(0);
 	#ifdef ILI9488
+        b = ssp_sendrecvdata(0);
         *out++ = (r << 11) | (g << 5) | b;
-	#else
+        #elif defined(ST7796S)
+	// Control interface color format, ‘101’ = 16bit/pixel
+        *out++ = (r << 8) | g;
+        #else
         *out++ = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
 	#endif
     }
